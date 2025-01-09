@@ -1,12 +1,12 @@
 from PySide6.QtCore import QObject, Slot, Signal, Property
 import os
 from enum import Enum
+from cipher import SM2Curve,SM2Backend
 
-class SM2Backend(QObject):
+class Backend(QObject):
     inputTextGot = Signal()
     outputPathGot = Signal()
     outputTextGot = Signal()
-    
     
     def __init__(self):
         
@@ -18,17 +18,10 @@ class SM2Backend(QObject):
         self.output_path_ = ""
         self.output_content_ = ""
         
-        #参数
-        self.p = 0
-        self.a = 0
-        self.b = 0
-        self.G = 0
-        self.n = 0
-        self.h = 0
+        curve = SM2Curve()
+        k_pr, k_pub = curve.generate_keypair()
+        self.sm2 = SM2Backend(k_pr, k_pub)
         
-        self.k_pr = 0
-        self.k_pub = 0
-    
     @Slot(bool)
     def get_enc_or_dec_choice(self,choice: bool):
         self.choice = self.Mode.enc if choice == 0 else self.Mode.dec
@@ -41,8 +34,10 @@ class SM2Backend(QObject):
             self.input_content_ = content
         self.inputTextGot.emit()
         
-        dir_name = os.path.dirname(input_path)
-        output_path = os.path.join(dir_name,"output.txt").replace('\\','/')
+        # dir_name = os.path.dirname(input_path)
+        # output_path = os.path.join(dir_name,"output.txt").replace('\\','/')
+        
+        output_path = input_path[:-4] + "_output" + input_path[-4:]
         self.output_path_ = output_path[8:]
         self.outputPathGot.emit()
         
@@ -63,40 +58,9 @@ class SM2Backend(QObject):
         
         #processing
         if self.choice == self.Mode.enc:
-            self.encrypt()
+            self.sm2.encrypt(self.input_path_,self.output_path_)
         elif self.choice == self.Mode.dec:
-            self.decrypt()
+            self.sm2.decrypt(self.input_path_,self.output_path_)
             
         #process completed
         self.outputTextGot.emit()
-        
-    def encrypt_block(block_num: int):
-        pass 
-    
-    def decrypt_block(block_num: int):
-        pass 
-    
-    def encrypt(self):
-        print("encrypt")
-        path = self.input_path_
-        return 
-        #读取txt文件
-        
-        #str -> 分组 -> str段 -> hex
-        
-        hex_array = [int]
-        #对hex加密
-        for hex in hex_array:
-            encrypted_hex = self.encrypt(hex)
-            hex = encrypted_hex
-
-        #hex -> str段 -> CBC链接 -> str 
-        
-        #保存到 output_path 里
-        output_path = self.output_path_
-        
-        pass
-
-    def decrypt(self):
-        print("decrypt")
-        pass
