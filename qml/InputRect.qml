@@ -4,9 +4,7 @@ import QtQuick.Controls.Material
 
 Rectangle{
     id: root
-    property string inputText
-    property string outputText
-    property bool readOnly_: false
+    property string text_
 
     width: parent.width - 100
     height: 100
@@ -28,13 +26,12 @@ Rectangle{
         }
         TextEdit{
             id: textInput
-            text: root.outputText
-            readOnly: root.readOnly_
+            text: root.text_
+            readOnly: true
             anchors.fill: parent
             cursorVisible: false
             wrapMode: TextEdit.Wrap
             onCursorRectangleChanged: flickable.ensureVisible(cursorRectangle)
-            onEditingFinished: root.inputText = text
         }
     }
 }

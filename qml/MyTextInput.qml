@@ -9,6 +9,7 @@ Rectangle{
     clip: true
     property string text_: ""
     property var wrap_mode: TextInput.NoWrap
+    property bool readOnly_: false
     // color: "transparent"
     border.width: 0.5; border.color: "white"
     TextInput{
@@ -16,6 +17,8 @@ Rectangle{
         anchors.fill: parent
         text: text_
         wrapMode: wrap_mode
+        onTextChanged: root.text_ = text
+        readOnly: root.readOnly_
     }
     Rectangle{
         anchors.bottom: parent.bottom

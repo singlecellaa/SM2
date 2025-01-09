@@ -26,6 +26,7 @@ ApplicationWindow{
         }
         Row{
             width: parent.width; height: 200
+            // 参数
             Column{
                 id: parameter_column
                 width: parent.width / 2 - 100; height: 200
@@ -50,41 +51,46 @@ ApplicationWindow{
                     }
                 }
             }
+            // 文件路径
             Column{
                 id: file_path_column
                 width: parent.width / 2; height: 200
-                ListView{
-                        id: directory_listView
-                        width: parent.width; height: parent.height
-                        model: ListModel{
-                            ListElement{name: "输入路径"; file_path: ""}
-                            ListElement{name: "输出路径"; file_path: ""}
-                        }
-                        delegate: Row{
-                            spacing: 5
-                            NativeText{text: model.name; y:2 }
-                            MyTextInput{id: file_path_textInput; width: 200; height: 20; text_: model.file_path; y: 2}
-                            Button{
-                                width: 30; height: 25
-                                Icon{id: file_button_icon; icon_: "file_icon.png"; anchors.verticalCenter: parent.verticalCenter; x: 5; width: 20}
-                                onClicked: folderDialog.open()
-                            }
-                            FolderDialog{
-                                id: folderDialog
-                                title: "select a folder"
-                                onAccepted: {
-                                    file_path_textInput.text_ = String(selectedFolder).substring(8)
-                                    model.file_path = String(selectedFolder).substring(8)
-                                }
-                            }
+                Row{
+                    id: intput_row
+                    spacing: 5
+                    NativeText{text: "输入路径"; y:2 }
+                    MyTextInput{
+                        id: input_path_textInput; width: 200; height: 20; y: 2
+                        readOnly_: true
+                    }
+                    Button{
+                        width: 30; height: 25
+                        Icon{id: file_button_icon; icon_: "file_icon.png"; anchors.verticalCenter: parent.verticalCenter; x: 5; width: 20}
+                        onClicked: fileDialog.open()
+                    }
+                    FileDialog{
+                        id: fileDialog
+                        title: "select a file"
+                        onAccepted: {
+                            input_path_textInput.text_ = String(selectedFile).substring(8)
+                            backend.get_input_filepath(selectedFile)
                         }
                     }
+                }
+                Row{
+                    id: output_row
+                    spacing: 5
+                    NativeText{text: "输出路径"; y:2 }
+                    MyTextInput{
+                        id: output_path_textInput; width: 200; height: 20; y: 2; text_: backend.output_path
+                    }
+                }
             }
         }
         NativeText{text: enc_radio_button.checked ? "输入（明文）" : "输入（密文）"}
-        InputRect{id: input_rect; x: 20; radius: 5}
+        InputRect{id: input_rect; x: 20; radius: 5; text_: backend.input_content}
         NativeText{text: enc_radio_button.checked ? "输出（密文）" : "输出（明文）"}
-        InputRect{id: output_rect; x: 20; radius: 5; readOnly_: true}
+        InputRect{id: output_rect; x: 20; radius: 5; text_: backend.output_content}
         OpButton{
             id: button
             width: 80
@@ -94,7 +100,8 @@ ApplicationWindow{
             x: main_column.width - width - 80
             y: main_column.height - height - 20
             onClicked: {
-                
+                backend.get_enc_or_dec_choice(dec_radio_button.checked)
+                backend.start_process()
             }
         }
     }
