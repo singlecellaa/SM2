@@ -7,6 +7,7 @@ class Backend(QObject):
     inputTextGot = Signal()
     outputPathGot = Signal()
     outputTextGot = Signal()
+    processFinished = Signal()
     
     def __init__(self):
         
@@ -22,6 +23,7 @@ class Backend(QObject):
         k_pr, k_pub = curve.generate_keypair()
         self.sm2 = SM2Backend(k_pr, k_pub)
         
+        self.processFinished.connect(self.flush_input_output_content)
     @Slot(bool)
     def get_enc_or_dec_choice(self,choice: bool):
         self.choice = self.Mode.enc if choice == 0 else self.Mode.dec
@@ -35,16 +37,41 @@ class Backend(QObject):
         self.output_path_ = output_path[8:]
         self.outputPathGot.emit()
         
+        self.input_content_ = ""
         try:
             with open(self.input_path_[8:] if "file:///" in self.input_path_ else self.input_path_ , 'r') as file:
                 content = file.read()
                 self.input_content_ = content
-            self.inputTextGot.emit()
         except UnicodeDecodeError as e:
             print(f"UnicodeDecodeError: {e}")
         except Exception as e:
             print(f"An error occurred: {e}")
+        self.inputTextGot.emit()
+    
+    @Slot(str)
+    def flush_input_output_content(self):
+        print("flush")
+        self.input_content_ = ""
+        self.output_content_ = ""
+        try:
+            with open(self.input_path_[8:] if "file:///" in self.input_path_ else self.input_path_ , 'r') as file:
+                content = file.read()
+                self.input_content_ = content
+        except UnicodeDecodeError as e:
+            print(f"UnicodeDecodeError: {e}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+        self.inputTextGot.emit()
         
+        try:
+            with open(self.output_path_[8:] if "file:///" in self.output_path_ else self.output_path_ , 'r') as file:
+                content = file.read()
+                self.output_content_ = content
+        except UnicodeDecodeError as e:
+            print(f"UnicodeDecodeError: {e}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+        self.outputTextGot.emit()
         
     @Property(str,notify=inputTextGot)
     def input_content(self):
@@ -54,6 +81,7 @@ class Backend(QObject):
         return self.output_path_
     @Property(str,notify=outputTextGot)
     def output_content(self):
+        print(self.output_content_)
         return self.output_content_
     
     @Slot()
@@ -70,4 +98,4 @@ class Backend(QObject):
             self.sm2.decrypt(self.input_path_,self.output_path_)
             
         #process completed
-        self.outputTextGot.emit()
+        self.processFinished.emit()
