@@ -79,15 +79,7 @@ class SM2Backend():
             x1, y1 = self.curve._multiply_point(k, (self.curve.Gx, self.curve.Gy))
             if (y1 * y1 % self.curve.p) != ((x1 * x1 * x1 + self.curve.a * x1 + self.curve.b) % self.curve.p):
                 raise Exception("Invalid C1", (x1, y1))
-            # C1 = x1 || x2
-
-            # i don't know if i should verify the public key here
-            # S = self._multiply_point(self.h, self.k_pub)
-            # if S == (0, 0):
-            #     raise Exception("invalid public key", self.k_pub)
-
             x2, y2 = self.curve._multiply_point(k, self.k_pub)
-
 
             Z = (hex(x2)[2:] + hex(y2)[2:]).encode("utf-8")
             if len(Z) % 2 == 1:
@@ -97,13 +89,9 @@ class SM2Backend():
             t = sm3.sm3_kdf(Z ,klen)
             if int(t, 16) != 0:
                 break
-
         C2 = block_num ^ int(t, 16)
-
-
         C3 = int(sm3.sm3_hash(list((hex(x2)[2:] + hex(block_num)[2:] + hex(y2)[2:]).encode("utf-8"))), 16)
 
-        # return int(hex(C1)[2:] + hex(C2)[2:] + hex(C3)[2:], 16)
         return [x1, y1, C2, C3]
 
     def decrypt_block(self, cipherlist: list):
@@ -127,9 +115,9 @@ class SM2Backend():
 
         block_num = C2 ^ int(t, 16)
 
-        # u = int(sm3.sm3_hash(list((hex(x2)[2:] + hex(block_num)[2:] + hex(y2)[2:]).encode("utf-8"))), 16)
-        # if u != C3:
-        #     raise Exception("Wrong hash")
+        u = int(sm3.sm3_hash(list((hex(x2)[2:] + hex(block_num)[2:] + hex(y2)[2:]).encode("utf-8"))), 16)
+        if u != C3:
+            raise Exception("Wrong hash")
 
         return block_num
 
@@ -138,10 +126,11 @@ class SM2Backend():
         byt_array = []
         hex_array = []
         ret_array = []
+        ret_arrar_to_bytes = []
         temp_bytes = b''
-        byt_Z=b'3887612864938539271238590944288822203666063777565269259181046397098621227741858415090285805853795430735950794908279233294502408668229789873746914546467267741596403575911176670361005664804708787945914987352171744766345763049890679867419169715124998566929765462281415040084752028381137083977510907764710818683642755540748942297837146936102783141562102197983276235732414156607545388449958816089993123300002867145457322920168143136652933122673858507432322755950096794988906215071353366209058043288149564680307917901380744560385883229635533689014780180929145559446483224593240044746434627839766949133036683565181019834796495444045103667797916536298349713161124766674284465564817891402514157657699175749811449603542089436926871474372237758318362172946182513432665464510746472048311673303510348598434314361339824000713679441403528519856231799308375224235277833849110207012449174823156954264316230667943706558071081717648593166395079551661030511072347733618308174953491527041186327621294934051076514639750973051673504650010541992403'
+        byt_Z = b'3887612864938539271238590944288822203666063777565269259181046397098621227741858415090285805853795430735950794908279233294502408668229789873746914546467267741596403575911176670361005664804708787945914987352171744766345763049890679867419169715124998566929765462281415040084752028381137083977510907764710818683642755540748942297837146936102783141562102197983276235732414156607545388449958816089993123300002867145457322920168143136652933122673858507432322755950096794988906215071353366209058043288149564680307917901380744560385883229635533689014780180929145559446483224593240044746434627839766949133036683565181019834796495444045103667797916536298349713161124766674284465564817891402514157657699175749811449603542089436926871474372237758318362172946182513432665464510746472048311673303510348598434314361339824000713679441403528519856231799308375224235277833849110207012449174823156954264316230667943706558071081717648593166395079551661030511072347733618308174953491527041186327621294934051076514639750973051673504650010541992403'
         Z = int.from_bytes(byt_Z, 'little', signed=False)
-        with open(path[8:], 'rb') as file:
+        with open(path[8:] if "file:///" in path else path, 'rb') as file:
             file.seek(0)
             while True:
                 data = file.read(0x400)
@@ -152,87 +141,150 @@ class SM2Backend():
         del byt_array[len(byt_array) - 1]
         flag = False
 
-        for index in range(len(byt_array)):
-            if index == len(byt_array) - 1 and len(byt_array[len(byt_array) - 1]) != 0x400:
+        lenth = 0
+        for b in byt_array[len(byt_array) - 1]:
+            if b != b'':
+                lenth+=1
+
+        if len(byt_array) == 1:
+            hex_array.append(int.from_bytes(byt_array[0], 'little',signed=False))
+            ret_array.append(self.encrypt_block(hex_array[0]))
+            ret_arrar_to_bytes.append([0,0,0,0])
+            ret_arrar_to_bytes[0][0] = ret_array[0][0].to_bytes(length=0x20, byteorder='little', signed=False)  #
+            ret_arrar_to_bytes[0][1] = ret_array[0][1].to_bytes(length=0x20, byteorder='little', signed=False)  #
+            ret_arrar_to_bytes[0][2] = ret_array[0][2].to_bytes(length=lenth, byteorder='little', signed=False)  #
+            ret_arrar_to_bytes[0][3] = ret_array[0][3].to_bytes(length=0x20, byteorder='little', signed=False)  #
+        else:
+            if lenth != 0x400:
                 flag = True
-                temp_bytes = ret_array[index - 1][2].to_bytes(length=0x400, byteorder='little', signed=False)
-                byt_array[len(byt_array) - 1] = temp_bytes[len(byt_array[len(byt_array) - 1]):] + byt_array[
-                    len(byt_array) - 1]
+            for index in range(len(byt_array)):
+                if index == len(byt_array) - 1 and flag:
+                    temp_bytes = ret_array[index - 1][2].to_bytes(length=0x400, byteorder='little', signed=False)
+                    ret_array[index - 1][2] = int.from_bytes(temp_bytes[:lenth], 'little',signed=False)
+                    byt_array[index] = temp_bytes[lenth:] + byt_array[index][:lenth]
 
-            hex_array.append(int.from_bytes(byt_array[index], 'little', signed=False))
+                hex_array.append(int.from_bytes(byt_array[index], 'little', signed=False))
+                
+                if index == 0:
+                    hex_array[index] = hex_array[index] ^ Z
+                elif index == len(byt_array) - 1 and flag:
+                    temp_bytes = ret_array[index - 1][2].to_bytes(length=0x400, byteorder='little', signed=False)
+                    temp = int.from_bytes(temp_bytes, 'little',signed=False)
+                    hex_array[index] = hex_array[index] ^ ret_array[index - 1][2]
+                else:
+                    hex_array[index] = hex_array[index] ^ ret_array[index - 1][2]
 
-            if index == 0:
-                hex_array[index] = hex_array[index] ^ Z
-            else:
-                hex_array[index] = hex_array[index] ^ ret_array[index - 1][2]
+                ret_array.append(self.encrypt_block(hex_array[index]))
 
-            ret_array.append(self.encrypt_block(hex_array[index]))
-
-        if flag:
-            ret_array[len(byt_array) - 1][2] = int.from_bytes(temp_bytes[:len(byt_array[len(byt_array) - 1])], 'little',
-                                                     signed=False)
-
-        with open(output_path, 'wb') as file:
+            for index in range(len(ret_array)):           
+                ret_arrar_to_bytes.append([0,0,0,0])
+                ret_arrar_to_bytes[index][0] = ret_array[index][0].to_bytes(length=0x20, byteorder='little', signed=False)  #
+                ret_arrar_to_bytes[index][1] = ret_array[index][1].to_bytes(length=0x20, byteorder='little', signed=False)  #
+                if index == len(ret_array) - 2 and flag:
+                    ret_arrar_to_bytes[index][2] = ret_array[index][2].to_bytes(length=lenth, byteorder='little', signed=False)  #
+                else:
+                    ret_arrar_to_bytes[index][2] = ret_array[index][2].to_bytes(length=0x400, byteorder='little', signed=False)  #
+                ret_arrar_to_bytes[index][3] = ret_array[index][3].to_bytes(length=0x20, byteorder='little', signed=False)  #
+        path = output_path
+        with open(path[8:] if "file:///" in path else path, 'wb') as file:
             for index in range(len(ret_array)):
-                file.write(ret_array[index][0].to_bytes(length=0x32, byteorder='little', signed=False))  #
-                file.write(ret_array[index][1].to_bytes(length=0x32, byteorder='little', signed=False))  #
-                file.write(ret_array[index][2].to_bytes(length=0x400, byteorder='little', signed=False))  #
-                file.write(ret_array[index][3].to_bytes(length=0x32, byteorder='little', signed=False))  #
+                file.write(ret_arrar_to_bytes[index][0])  
+                file.write(ret_arrar_to_bytes[index][1]) 
+                file.write(ret_arrar_to_bytes[index][2])  
+                file.write(ret_arrar_to_bytes[index][3])  
 
     def decrypt(self,input_path,output_path):
         path = input_path
+        ord_array = []
         byt_array = []
         hex_array = []
         ret_array = []
         byt_Z = b'3887612864938539271238590944288822203666063777565269259181046397098621227741858415090285805853795430735950794908279233294502408668229789873746914546467267741596403575911176670361005664804708787945914987352171744766345763049890679867419169715124998566929765462281415040084752028381137083977510907764710818683642755540748942297837146936102783141562102197983276235732414156607545388449958816089993123300002867145457322920168143136652933122673858507432322755950096794988906215071353366209058043288149564680307917901380744560385883229635533689014780180929145559446483224593240044746434627839766949133036683565181019834796495444045103667797916536298349713161124766674284465564817891402514157657699175749811449603542089436926871474372237758318362172946182513432665464510746472048311673303510348598434314361339824000713679441403528519856231799308375224235277833849110207012449174823156954264316230667943706558071081717648593166395079551661030511072347733618308174953491527041186327621294934051076514639750973051673504650010541992403'
         Z = int.from_bytes(byt_Z, 'little', signed=False)
-        with open(path[8:], 'rb') as file:
+        with open(path[8:] if "file:///" in path else path, 'rb') as file:
             file.seek(0)
             while True:
-                data1 = file.read(0x32)
-                data2 = file.read(0x32)
-                data3 = file.read(0x400)
-                data4 = file.read(0x32)
-                byt_array.append([data1, data2, data3, data4])
-                if not data1:
+                data = file.read(0x460)
+                ord_array.append(data)
+                if not data:
+                    break
+        
+        del ord_array[len(ord_array) - 1]
+
+        lenth = 0
+        for b in ord_array[len(ord_array) - 1]:
+            if b != b'':
+                lenth+=1
+
+        if len(ord_array) == 1:
+            byt_array.append([ord_array[0][:0x20],ord_array[0][0x20:0x40],ord_array[0][0x40:lenth - 0x20],ord_array[0][lenth - 0x20:]])
+            hex_array.append([int.from_bytes(byt_array[0][0], 'little', signed=False),
+                              int.from_bytes(byt_array[0][1], 'little', signed=False),
+                              int.from_bytes(byt_array[0][2], 'little', signed=False),
+                              int.from_bytes(byt_array[0][3], 'little', signed=False)])
+            ret_array.append(self.decrypt_block(hex_array[0]))
+        else:
+            if lenth != 0x460:
+                ord_array[len(ord_array) - 1] = ord_array[len(ord_array) - 2][lenth:] + ord_array[len(ord_array) - 1][:lenth]
+                ord_array[len(ord_array) - 2] = ord_array[len(ord_array) - 2][:lenth]
+            for index in range(len(ord_array)):
+                l = len(ord_array[index])
+                byt_array.append([ord_array[index][:0x20],ord_array[index][0x20:0x40],ord_array[index][0x40:l - 0x20],ord_array[index][l - 0x20:]])
+            for index in range(len(ord_array)):
+                print(len(byt_array[index][0]))
+                print(len(byt_array[index][1]))
+                print(len(byt_array[index][2]))
+                print(len(byt_array[index][3]))
+
+            for index in range(len(ord_array)):
+                hex_array.append([int.from_bytes(byt_array[index][0], 'little', signed=False),
+                                int.from_bytes(byt_array[index][1], 'little', signed=False),
+                                int.from_bytes(byt_array[index][2], 'little', signed=False),
+                                int.from_bytes(byt_array[index][3], 'little', signed=False)])
+
+                if index == len(byt_array) - 2 and len(byt_array[index][2]) != 0x400:
+                    temp = int.from_bytes(byt_array[index][2], 'little', signed=False)
+                    temp_bytes = temp.to_bytes(length=0x400, byteorder='little', signed=False)
+                    ret_array.append(0)
+                    ret_array.append(0)
+                    hex_array.append([int.from_bytes(byt_array[index + 1][0], 'little', signed=False),
+                                    int.from_bytes(byt_array[index + 1][1], 'little', signed=False),
+                                    int.from_bytes(byt_array[index + 1][2], 'little', signed=False),
+                                    int.from_bytes(byt_array[index + 1][3], 'little', signed=False)])
+                    ret_array[index + 1] = self.decrypt_block(hex_array[index + 1])
+                    ret_array[index + 1] = ret_array[index + 1] ^ int.from_bytes(temp_bytes, 'little', signed=False)
+                    temp_bytes = ret_array[index + 1].to_bytes(length=0x400, byteorder='little', signed=False)
+                    byt_array[index][2] = byt_array[index][2] + temp_bytes[:0x400 - len(byt_array[index][2])]
+                    hex_array[index][2] = int.from_bytes(byt_array[index][2], 'little', signed=False)
+                    ret_array[index] = self.decrypt_block(hex_array[index])
+                    if index == 0:
+                        ret_array[index] = ret_array[index] ^ Z
+                    else:
+                        ret_array[index] = ret_array[index] ^ hex_array[index - 1][2]
+                    temp_bytes = ret_array[index + 1].to_bytes(length=0x400, byteorder='little', signed=False)
+                    ret_array[index + 1] =  int.from_bytes(temp_bytes[0x460 - lenth:], 'little', signed=False)
                     break
 
-        del byt_array[len(byt_array) - 1]
+                ret_array.append(self.decrypt_block(hex_array[index]))
 
-        for index in range(len(byt_array)):
-            hex_array.append([int.from_bytes(byt_array[index][0], 'little', signed=False),
-                              int.from_bytes(byt_array[index][1], 'little', signed=False),
-                              int.from_bytes(byt_array[index][2], 'little', signed=False),
-                              int.from_bytes(byt_array[index][3], 'little', signed=False)])
+                if index == 0:
+                    ret_array[index] = ret_array[index] ^ Z
+                else:
+                    ret_array[index] = ret_array[index] ^ hex_array[index - 1][2]
 
-            if index == len(byt_array) - 2 and len(byt_array[index][2]) != 0x400:
-                ret_array.append(0)
-                ret_array.append(0)
-                hex_array.append([int.from_bytes(byt_array[index + 1][0], 'little', signed=False),
-                                  int.from_bytes(byt_array[index + 1][1], 'little', signed=False),
-                                  int.from_bytes(byt_array[index + 1][2], 'little', signed=False),
-                                  int.from_bytes(byt_array[index + 1][3], 'little', signed=False)])
-                ret_array[index + 1] = self.decrypt_block(hex_array[index + 1])
-                temp_bytes = ret_array[index + 1].to_bytes(length=0x400, byteorder='little', signed=False)
-                byt_array[index][2] = byt_array[index][2] + temp_bytes[:0x400 - len(byt_array[index][2])]
-                hex_array[index][2] = int.from_bytes(byt_array[index][2], 'little', signed=False)
-                ret_array[index] = self.decrypt_block(hex_array[index])
-                ret_array[index + 1] = int.from_bytes(byt_array[index + 1][2][0x400 - len(byt_array[index][2]):], 'little', signed=False)
-                break
-
-            ret_array.append(self.decrypt_block(hex_array[index]))
-
-            if index == 0:
-                ret_array[index] = ret_array[index] ^ Z
-            else:
-                ret_array[index] = ret_array[index] ^ hex_array[index - 1][2]
-
-        with open(output_path, 'wb') as file:
-            for index in range(len(byt_array)):
-                file.write(ret_array[0].to_bytes(length=0x400, byteorder='little', signed=False))
+        path = output_path
+        with open(path[8:] if "file:///" in path else path, 'wb') as file:
+            for index in range(len(ord_array)):
+                if index == len(ord_array) - 1 and lenth!=0x460:
+                    file.write(ret_array[index].to_bytes(length=lenth-0x60, byteorder='little', signed=False))
+                else:
+                    file.write(ret_array[index].to_bytes(length=0x400, byteorder='little', signed=False))
 
 
 curve = SM2Curve()
 k_pr, k_pub = curve.generate_keypair()
 sm2 = SM2Backend(k_pr, k_pub)
 
+if __name__ == "__main__":
+    sm2.encrypt("file:///E:/qt_project/SM2/2.txt","file:///E:/qt_project/SM2/enc.txt")
+    sm2.decrypt("file:///E:/qt_project/SM2/enc.txt","file:///E:/qt_project/SM2/dec.txt")

@@ -7,16 +7,14 @@ Rectangle{
     property string text_
 
     width: parent.width - 100
-    height: 100
+    height: 200
     focus: true
 
     Flickable{
         id: flickable
         anchors.fill: parent
-        anchors.leftMargin: 20
-        anchors.topMargin: 8
-        anchors.rightMargin: 100
-        anchors.bottomMargin: 45
+        anchors.leftMargin: 20; anchors.rightMargin: 20
+        anchors.topMargin: 10; anchors.bottomMargin: 10
         clip: true
         function ensureVisible(r){
             if(contentY >= r.y)

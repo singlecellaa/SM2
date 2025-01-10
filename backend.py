@@ -28,18 +28,23 @@ class Backend(QObject):
         
     @Slot(str)
     def get_input_filepath(self,input_path):
+        print("get input filepath")
         self.input_path_ = input_path
-        with open('E:/qt_project/test.txt' , 'r') as file:
-            content = file.read()
-            self.input_content_ = content
-        self.inputTextGot.emit()
-        
-        # dir_name = os.path.dirname(input_path)
-        # output_path = os.path.join(dir_name,"output.txt").replace('\\','/')
         
         output_path = input_path[:-4] + "_output" + input_path[-4:]
         self.output_path_ = output_path[8:]
         self.outputPathGot.emit()
+        
+        try:
+            with open(self.input_path_[8:] if "file:///" in self.input_path_ else self.input_path_ , 'r') as file:
+                content = file.read()
+                self.input_content_ = content
+            self.inputTextGot.emit()
+        except UnicodeDecodeError as e:
+            print(f"UnicodeDecodeError: {e}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+        
         
     @Property(str,notify=inputTextGot)
     def input_content(self):
@@ -58,8 +63,10 @@ class Backend(QObject):
         
         #processing
         if self.choice == self.Mode.enc:
+            print("encrypt")
             self.sm2.encrypt(self.input_path_,self.output_path_)
         elif self.choice == self.Mode.dec:
+            print("decrypt")
             self.sm2.decrypt(self.input_path_,self.output_path_)
             
         #process completed
